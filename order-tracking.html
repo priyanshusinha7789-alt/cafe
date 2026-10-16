@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Live Order Delivery Tracking – Brew & Bloom Café Haldia." />
+  <title>Live Order Tracking | Brew &amp; Bloom Café</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Leaflet Map CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body style="background:var(--warm-cream);">
+
+  <!-- Navbar -->
+  <nav class="navbar scrolled" aria-label="Main navigation">
+    <div class="nav-container">
+      <a href="index.html" class="nav-logo">
+        <span class="logo-icon" aria-hidden="true">☕</span>
+        <div class="logo-text">
+          <span class="logo-name">Brew &amp; Bloom</span>
+          <span class="logo-tagline">ORDER TRACKING</span>
+        </div>
+      </a>
+
+      <ul class="nav-links" id="navLinks" role="list">
+        <li><a href="index.html" class="nav-link">Home</a></li>
+        <li><a href="index.html#menu" class="nav-link">Menu</a></li>
+        <li><a href="order-tracking.html" class="nav-link active">Live Tracking</a></li>
+        <li><a href="driver.html" class="nav-link">Driver App</a></li>
+        <li><a href="admin.html" class="nav-link" style="color:var(--golden-yellow);">Admin Dashboard</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="tracking-container">
+
+    <!-- Order Lookup Bar (if user visits directly) -->
+    <div class="info-card" id="orderSearchCard" style="margin-bottom:2rem; background:var(--white);">
+      <div style="flex:1;">
+        <h3 style="margin-bottom:0.5rem; color:var(--forest-green);">Track Your Order</h3>
+        <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:1rem;">Enter your Order ID (e.g. <code>ORD-1234</code>) provided on checkout.</p>
+        <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+          <input type="text" id="manualOrderIdInput" class="form-input" placeholder="Enter Order ID" style="flex:1; min-width:200px;" />
+          <button class="btn btn-primary" id="trackOrderBtn">Track Now</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Tracking Screen -->
+    <div id="trackingContentArea">
+
+      <!-- Header Card with Demo/Live Status -->
+      <div class="tracking-header-card">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem;">
+          <div>
+            <div id="trackingModeBadge" class="demo-tracking-pill">
+              <span>⚠️ DEMO TRACKING — NOT LIVE GPS</span>
+            </div>
+            <h1 class="tracking-order-id" id="displayOrderId">Order #Loading...</h1>
+            <p style="color:rgba(255,248,236,0.85); font-size:0.95rem;" id="displayOrderCustomer">Recipient: --</p>
+            <p style="color:rgba(255,248,236,0.75); font-size:0.85rem;" id="displayOrderAddress">Destination: --</p>
+          </div>
+
+          <!-- Demo Controller Simulation buttons -->
+          <div id="demoControlsBox" style="background:rgba(0,0,0,0.25); padding:1rem; border-radius:var(--radius-md); border:1px solid rgba(255,255,255,0.15);">
+            <div style="font-size:0.75rem; font-weight:800; text-transform:uppercase; color:var(--golden-yellow); margin-bottom:0.5rem;">
+              🎮 Demo Stage Simulator
+            </div>
+            <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+              <button class="btn btn-sm btn-golden" id="btnSimulateNextStage">Advance Stage →</button>
+              <button class="btn btn-sm btn-ghost" id="btnSimulateRide">Drive Scooter 🛵</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="tracking-eta-box">
+          <div class="eta-item">
+            <span class="eta-val" id="etaMinutesDisplay">25 mins</span>
+            <span class="eta-lbl">Est. Arrival Time</span>
+          </div>
+          <div class="eta-item">
+            <span class="eta-val" id="distanceRemainingDisplay">2.5 km</span>
+            <span class="eta-lbl">Distance Remaining</span>
+          </div>
+          <div class="eta-item">
+            <span class="eta-val" id="distanceTraveledDisplay">0.0 km</span>
+            <span class="eta-lbl">Distance Covered</span>
+          </div>
+          <div class="eta-item">
+            <span class="eta-val" id="orderTotalDisplay">₹0</span>
+            <span class="eta-lbl">Bill Amount (COD/UPI)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6-Stage Timeline Card -->
+      <div class="timeline-card">
+        <h3 style="font-size:1.15rem; color:var(--forest-green); margin-bottom:1rem;">Delivery Progress</h3>
+        
+        <div class="timeline-stages">
+          <div class="timeline-progress-bar" id="timelineProgressBar" style="width: 10%;"></div>
+
+          <!-- 1 -->
+          <div class="stage-item active" id="stage-received">
+            <div class="stage-circle">1</div>
+            <span class="stage-name">Order Received</span>
+          </div>
+
+          <!-- 2 -->
+          <div class="stage-item" id="stage-preparing">
+            <div class="stage-circle">2</div>
+            <span class="stage-name">Preparing Food</span>
+          </div>
+
+          <!-- 3 -->
+          <div class="stage-item" id="stage-ready">
+            <div class="stage-circle">3</div>
+            <span class="stage-name">Ready for Pickup</span>
+          </div>
+
+          <!-- 4 -->
+          <div class="stage-item" id="stage-picked_up">
+            <div class="stage-circle">4</div>
+            <span class="stage-name">Picked Up</span>
+          </div>
+
+          <!-- 5 -->
+          <div class="stage-item" id="stage-out_for_delivery">
+            <div class="stage-circle">5</div>
+            <span class="stage-name">Out for Delivery</span>
+          </div>
+
+          <!-- 6 -->
+          <div class="stage-item" id="stage-delivered">
+            <div class="stage-circle">6</div>
+            <span class="stage-name">Delivered</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Interactive Map Card -->
+      <div class="tracking-map-card">
+        <div class="tracking-map-header">
+          <div style="font-weight:700; color:var(--forest-green); font-size:1rem; display:flex; align-items:center; gap:0.5rem;">
+            <span>🗺️</span>
+            <span>Live Delivery Route</span>
+          </div>
+          <div class="live-indicator">
+            <span class="live-dot"></span>
+            <span id="mapLiveStatusText">Telemetry Connected</span>
+          </div>
+        </div>
+        <div id="liveTrackingMap"></div>
+      </div>
+
+      <!-- Delivery Partner Card -->
+      <div class="driver-info-card">
+        <div class="driver-profile">
+          <div class="driver-avatar">🛵</div>
+          <div class="driver-details">
+            <h4 id="driverNameDisplay">Subhajit Das</h4>
+            <p id="driverVehicleDisplay">TVS Ntorq 125 · Haldia Fleet Partner</p>
+            <p style="font-size:0.75rem; color:#27AE60; font-weight:700; margin-top:2px;">● Verified Partner · Sanitized Gear</p>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:0.75rem;">
+          <a href="tel:+910000000000" class="btn btn-sm btn-forest" id="btnCallDriver">
+            📞 Call Partner
+          </a>
+          <a href="#" class="btn btn-sm btn-whatsapp whatsapp-order" data-item="my delivery status" id="btnWhatsappDriver">
+            💬 WhatsApp
+          </a>
+        </div>
+      </div>
+
+      <!-- Order Items Summary Accordion -->
+      <div class="info-card" style="display:block;">
+        <h3 style="color:var(--forest-green); margin-bottom:0.75rem;">Items in this Order</h3>
+        <div id="trackingItemsList" style="display:flex; flex-direction:column; gap:0.5rem;">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <footer class="footer" style="padding-top:3rem;">
+    <div class="container" style="text-align:center; padding-bottom:2rem;">
+      <p style="font-size:0.85rem; color:rgba(255,248,236,0.6);">&copy; 2026 Brew &amp; Bloom Café, Haldia · Live Telemetry System</p>
+      <p style="font-size:0.78rem; color:rgba(255,248,236,0.4); margin-top:0.4rem;">
+        In production with real drivers, GPS coordinates stream live from the <a href="driver.html" style="text-decoration:underline;">Driver Interface</a> via Supabase Realtime.
+      </p>
+    </div>
+  </footer>
+
+  <!-- Leaflet Map JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Supabase JS CDN (v2) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Order Tracking Script Module -->
+  <script type="module">
+    import CONFIG from './js/config.js';
+
+    const STAGES = [
+      { id: 'received', label: 'Order Received', icon: '📋' },
+      { id: 'preparing', label: 'Preparing Food', icon: '👨‍🍳' },
+      { id: 'ready', label: 'Ready for Pickup', icon: '📦' },
+      { id: 'picked_up', label: 'Picked Up', icon: '🛵' },
+      { id: 'out_for_delivery', label: 'Out for Delivery', icon: '🚀' },
+      { id: 'delivered', label: 'Delivered', icon: '✅' },
+    ];
+
+    let currentStageIndex = 0;
+    let currentOrder = null;
+    let driverProgress = 0.2;
+    let trackingMap = null;
+    let driverMarker = null;
+    let driverAnimationTimer = null;
+
+    function init() {
+      // Check URL params first
+      const urlParams = new URLSearchParams(window.location.search);
+      let orderId = urlParams.get('orderId');
+
+      // If no URL param, check if there's a stored order
+      if (!orderId) {
+        orderId = localStorage.getItem('bnb_last_order_id');
+      }
+
+      if (orderId) {
+        lookupOrder(orderId);
+        // Pre-fill the input
+        const inp = document.getElementById('manualOrderIdInput');
+        if (inp) inp.value = orderId;
+      } else {
+        showNoOrder();
+      }
+
+      // Track button handler
+      document.getElementById('trackOrderBtn')?.addEventListener('click', () => {
+        const inp = document.getElementById('manualOrderIdInput')?.value.trim();
+        if (inp) {
+          lookupOrder(inp);
+        }
+      });
+
+      // Enter key on input
+      document.getElementById('manualOrderIdInput')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          const inp = e.target.value.trim();
+          if (inp) lookupOrder(inp);
+        }
+      });
+
+      // Demo controls
+      document.getElementById('btnSimulateNextStage')?.addEventListener('click', advanceStage);
+      document.getElementById('btnSimulateRide')?.addEventListener('click', startScooterSimulation);
+    }
+
+    function showNoOrder() {
+      document.getElementById('displayOrderId').textContent = 'No Order Found';
+      document.getElementById('displayOrderCustomer').textContent = 'Enter your Order ID above (e.g. ORD-1234) to track your delivery.';
+      document.getElementById('displayOrderAddress').textContent = '';
+      document.getElementById('trackingContentArea').style.display = 'none';
+      document.getElementById('orderSearchCard').style.display = 'block';
+    }
+
+    function lookupOrder(orderId) {
+      const storedId = localStorage.getItem('bnb_last_order_id');
+      const storedData = localStorage.getItem('bnb_last_order_data');
+
+      if (storedId && storedId === orderId && storedData) {
+        try {
+          currentOrder = JSON.parse(storedData);
+          currentStageIndex = 0;
+          showTracking(currentOrder);
+        } catch {
+          showOrderNotFound(orderId);
+        }
+      } else {
+        showOrderNotFound(orderId);
+      }
+    }
+
+    function showOrderNotFound(orderId) {
+      document.getElementById('trackingContentArea').style.display = 'none';
+      document.getElementById('displayOrderId').textContent = 'Order Not Found';
+      document.getElementById('displayOrderCustomer').textContent = `No order with ID "${orderId}" was found. Please check your Order ID and try again.`;
+      document.getElementById('displayOrderAddress').textContent = '';
+      // Show a toast-like message
+      const searchCard = document.getElementById('orderSearchCard');
+      if (searchCard) {
+        const existing = searchCard.querySelector('.tracking-error-msg');
+        if (existing) existing.remove();
+        const errDiv = document.createElement('div');
+        errDiv.className = 'tracking-error-msg';
+        errDiv.style.cssText = 'margin-top:1rem; padding:0.75rem 1rem; background:#FFF3CD; border:1px solid #FFEEBA; border-radius:8px; color:#856404; font-size:0.9rem;';
+        errDiv.innerHTML = `⚠️ <strong>Order ID "${orderId}" not found.</strong> Make sure you've placed an order from this browser. The Order ID is saved locally when you checkout.`;
+        searchCard.appendChild(errDiv);
+      }
+    }
+
+    function showTracking(order) {
+      document.getElementById('trackingContentArea').style.display = 'block';
+
+      // Populate header
+      document.getElementById('displayOrderId').textContent = `Order #${order.orderId}`;
+      document.getElementById('displayOrderCustomer').textContent = `Customer: ${order.customerName} (${order.customerPhone})`;
+
+      const orderTypeLabels = { delivery: 'Home Delivery', takeaway: 'Takeaway', dinein: 'Dine-In' };
+      document.getElementById('displayOrderAddress').textContent = `Order Type: ${orderTypeLabels[order.orderType] || order.orderType}`;
+
+      document.getElementById('orderTotalDisplay').textContent = `₹${order.total}`;
+
+      // Mode badge
+      const badge = document.getElementById('trackingModeBadge');
+      if (badge) {
+        badge.className = 'demo-tracking-pill';
+        badge.innerHTML = '<span>🎮 SIMULATED TRACKING DEMO</span>';
+      }
+
+      // Render order items
+      const itemsList = document.getElementById('trackingItemsList');
+      if (itemsList && order.items) {
+        itemsList.innerHTML = order.items.map(i => `
+          <div style="display:flex; justify-content:space-between; font-size:0.9rem; padding:0.4rem 0; border-bottom:1px dashed var(--border-light);">
+            <span>${i.emoji || '🍽️'} <strong>${i.name}</strong> × ${i.qty}</span>
+            <span>₹${i.price * i.qty}</span>
+          </div>
+        `).join('');
+      }
+
+      updateTimeline(0);
+      initMap();
+    }
+
+    function updateTimeline(stageIdx) {
+      currentStageIndex = Math.min(stageIdx, STAGES.length - 1);
+
+      STAGES.forEach((stage, i) => {
+        const el = document.getElementById(`stage-${stage.id}`);
+        if (!el) return;
+        el.classList.remove('active', 'completed');
+        if (i < currentStageIndex) el.classList.add('completed');
+        else if (i === currentStageIndex) el.classList.add('active');
+      });
+
+      const progressBar = document.getElementById('timelineProgressBar');
+      if (progressBar) {
+        const percent = Math.min(100, Math.max(10, Math.round((currentStageIndex / (STAGES.length - 1)) * 100)));
+        progressBar.style.width = `${percent}%`;
+      }
+
+      // Update ETA based on stage
+      const etaMins = Math.max(2, 25 - (currentStageIndex * 5));
+      document.getElementById('etaMinutesDisplay').textContent = `${etaMins} mins`;
+    }
+
+    function advanceStage() {
+      if (!currentOrder) return;
+      const nextIdx = Math.min(currentStageIndex + 1, STAGES.length - 1);
+      updateTimeline(nextIdx);
+
+      // Update stored status
+      const data = JSON.parse(localStorage.getItem('bnb_last_order_data') || '{}');
+      data.status = STAGES[nextIdx].id;
+      localStorage.setItem('bnb_last_order_data', JSON.stringify(data));
+    }
+
+    function initMap() {
+      if (typeof L === 'undefined') return;
+      const mapEl = document.getElementById('liveTrackingMap');
+      if (!mapEl) return;
+
+      // Remove existing map instance if any
+      if (trackingMap) {
+        trackingMap.remove();
+        trackingMap = null;
+      }
+
+      const cafeLat = CONFIG.restaurant.lat;
+      const cafeLng = CONFIG.restaurant.lng;
+      const userLat = cafeLat + 0.018;
+      const userLng = cafeLng + 0.015;
+
+      trackingMap = L.map('liveTrackingMap').setView([cafeLat, cafeLng], 13);
+
+      L.tileLayer(CONFIG.map.tileUrl, {
+        attribution: CONFIG.map.tileAttribution,
+        maxZoom: 18,
+      }).addTo(trackingMap);
+
+      // Café Pin
+      const cafeIcon = L.divIcon({
+        className: 'custom-leaflet-marker',
+        html: '<div style="background:#073B32; color:#FFF8EC; padding:6px 12px; border-radius:100px; font-weight:800; font-size:12px; border:2px solid #FFC247; box-shadow:0 3px 12px rgba(0,0,0,0.35);">☕ Brew & Bloom</div>',
+        iconSize: [115, 32],
+        iconAnchor: [57, 16],
+      });
+      L.marker([cafeLat, cafeLng], { icon: cafeIcon })
+        .addTo(trackingMap)
+        .bindPopup('<b>Brew & Bloom Café</b><br />Kitchen & Roastry, Haldia');
+
+      // Customer Pin
+      const userIcon = L.divIcon({
+        className: 'custom-leaflet-marker',
+        html: '<div style="background:#FF7629; color:#FFFFFF; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; border:3px solid #FFFFFF; box-shadow:0 4px 14px rgba(0,0,0,0.4);">📍</div>',
+        iconSize: [36, 36],
+        iconAnchor: [18, 18],
+      });
+      L.marker([userLat, userLng], { icon: userIcon })
+        .addTo(trackingMap)
+        .bindPopup('<b>Delivery Destination</b>');
+
+      // Route line
+      L.polyline([[cafeLat, cafeLng], [userLat, userLng]], {
+        color: '#FF7629', weight: 4, dashArray: '8, 8', opacity: 0.85
+      }).addTo(trackingMap);
+
+      // Driver scooter marker
+      const driverLat = cafeLat + (userLat - cafeLat) * driverProgress;
+      const driverLng = cafeLng + (userLng - cafeLng) * driverProgress;
+      const scooterIcon = L.divIcon({
+        className: 'custom-leaflet-marker',
+        html: '<div style="background:#FFC247; color:#172421; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:22px; border:3px solid #073B32; box-shadow:0 4px 16px rgba(0,0,0,0.45); animation:pulse 1.8s infinite;">🛵</div>',
+        iconSize: [40, 40],
+        iconAnchor: [20, 20],
+      });
+      driverMarker = L.marker([driverLat, driverLng], { icon: scooterIcon })
+        .addTo(trackingMap)
+        .bindPopup('<b>Delivery Partner</b><br />Brew & Bloom Fleet');
+
+      trackingMap.fitBounds([[cafeLat, cafeLng], [userLat, userLng]], { padding: [50, 50] });
+    }
+
+    function startScooterSimulation() {
+      if (!currentOrder || !trackingMap || !driverMarker) return;
+      if (driverAnimationTimer) {
+        clearInterval(driverAnimationTimer);
+        driverAnimationTimer = null;
+        document.getElementById('btnSimulateRide').textContent = 'Drive Scooter 🛵';
+        return;
+      }
+
+      document.getElementById('btnSimulateRide').textContent = 'Pause Ride ⏸️';
+
+      const cafeLat = CONFIG.restaurant.lat;
+      const cafeLng = CONFIG.restaurant.lng;
+      const userLat = cafeLat + 0.018;
+      const userLng = cafeLng + 0.015;
+      const totalDist = 2.5;
+
+      driverAnimationTimer = setInterval(() => {
+        driverProgress += 0.02;
+        if (driverProgress >= 1.0) {
+          driverProgress = 1.0;
+          clearInterval(driverAnimationTimer);
+          driverAnimationTimer = null;
+          document.getElementById('btnSimulateRide').textContent = 'Drive Scooter 🛵';
+          updateTimeline(STAGES.length - 1); // Delivered
+        }
+
+        const lat = cafeLat + (userLat - cafeLat) * driverProgress;
+        const lng = cafeLng + (userLng - cafeLng) * driverProgress;
+        driverMarker.setLatLng([lat, lng]);
+
+        const distCovered = Math.round(totalDist * driverProgress * 10) / 10;
+        const distLeft = Math.round((totalDist - distCovered) * 10) / 10;
+        const etaMins = Math.max(2, Math.round(distLeft * 3));
+
+        document.getElementById('distanceTraveledDisplay').textContent = `${distCovered} km`;
+        document.getElementById('distanceRemainingDisplay').textContent = `${distLeft} km`;
+        document.getElementById('etaMinutesDisplay').textContent = `${etaMins} mins`;
+      }, 1000);
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
